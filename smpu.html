@@ -167,6 +167,7 @@
   #svcScroller{
     overflow-x:auto; overflow-y:hidden; scrollbar-width:none; -ms-overflow-style:none;
     cursor:grab; -webkit-overflow-scrolling:touch; overscroll-behavior-x:contain;
+    user-select:none; -webkit-user-select:none;
   }
   #svcScroller::-webkit-scrollbar{ display:none; }
   #svcScroller.dragging{ cursor:grabbing; }
@@ -622,7 +623,7 @@
         <blockquote class="mt-5 text-[.94rem] leading-relaxed text-muted">"I had my lips blushed before my wedding and the colour was perfect — just enough definition to look polished without looking like filler. Six months on it's still beautiful."</blockquote>
         <figcaption class="mt-6 flex items-center gap-3.5 border-t border-line pt-5">
           <span class="grid h-9 w-9 place-items-center rounded-full bg-white text-[.68rem] font-semibold tracking-wider text-ink">SW</span>
-          <div><p class="text-[.85rem] font-semibold text-ink">Sarah Whitworth</p><p class="text-[.64rem] tracking-[.2em] text-slateblue">LIP BLUSH · BACCUP</p></div>
+          <div><p class="text-[.85rem] font-semibold text-ink">Sarah Whitworth</p><p class="text-[.64rem] tracking-[.2em] text-slateblue">LIP BLUSH · BACUP</p></div>
         </figcaption>
       </figure>
 
@@ -795,6 +796,7 @@
   const yearEl = document.getElementById('year');
   if (yearEl) yearEl.textContent = new Date().getFullYear();
 
+  /* Header scroll */
   const siteHeader = document.getElementById('siteHeader');
   let headerScrolled = false;
   const onScroll = () => {
@@ -807,6 +809,7 @@
   window.addEventListener('scroll', onScroll, { passive: true });
   onScroll();
 
+  /* Drawer */
   const drawer = document.getElementById('drawer');
   const drawerPanel = document.getElementById('drawerPanel');
   const menuBtn = document.getElementById('menuBtn');
@@ -836,6 +839,7 @@
     if (e.key === 'Escape' && drawer.classList.contains('open')) closeDrawer();
   });
 
+  /* Reveal */
   const revealEls = document.querySelectorAll('[data-reveal]');
   if ('IntersectionObserver' in window && !reduceMotion) {
     const io = new IntersectionObserver((entries) => {
@@ -848,6 +852,7 @@
     revealEls.forEach(el => el.classList.add('in'));
   }
 
+  /* Carousel */
   (function initCarousel () {
     const scroller = document.getElementById('svcScroller');
     const prevBtn = document.getElementById('svcPrev');
@@ -906,16 +911,24 @@
     if (nextBtn) nextBtn.addEventListener('click', () => tweenBy( stepSize()));
     scroller.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') hovering = true; });
     scroller.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hovering = false; });
+
+    /* NOTE: do NOT setPointerCapture on pointerdown — doing so retargets the
+       pointerup to the scroller, which makes the browser synthesise the click
+       on the scroller instead of the <a class="svc-card"> and the card never
+       navigates. Capture only once a real drag has begun. */
     scroller.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'touch') { pauseUntil = now() + RESUME_DELAY; return; }
       isDown = true; moved = false; startX = e.clientX; startScroll = scroller.scrollLeft;
       if (tweenRAF) { cancelAnimationFrame(tweenRAF); tweenRAF = null; }
-      try { scroller.setPointerCapture(e.pointerId); } catch (_) {}
     });
     window.addEventListener('pointermove', (e) => {
       if (!isDown) return;
       const dx = e.clientX - startX;
-      if (!moved && Math.abs(dx) > DRAG_THRESHOLD) { moved = true; scroller.classList.add('dragging'); }
+      if (!moved && Math.abs(dx) > DRAG_THRESHOLD) {
+        moved = true;
+        scroller.classList.add('dragging');
+        try { scroller.setPointerCapture(e.pointerId); } catch (_) {}
+      }
       if (moved) { e.preventDefault(); scroller.scrollLeft = startScroll - dx; }
     }, { passive: false });
     function endDrag (e) {
@@ -923,6 +936,9 @@
       isDown = false; scroller.classList.remove('dragging');
       if (e && e.pointerId != null) { try { scroller.releasePointerCapture(e.pointerId); } catch (_) {} }
       pauseUntil = now() + RESUME_DELAY;
+      /* If a drag just happened, a click may or may not fire. Clear `moved`
+         on the next tick so a subsequent genuine click is not blocked. */
+      if (moved) setTimeout(() => { moved = false; }, 0);
     }
     window.addEventListener('pointerup', endDrag);
     window.addEventListener('pointercancel', endDrag);
@@ -947,6 +963,7 @@
     requestAnimationFrame(loop);
   })();
 
+  /* FAQ */
   document.querySelectorAll('.faq-item').forEach(item => {
     const btn = item.querySelector('.faq-btn');
     if (!btn) return;
@@ -964,6 +981,7 @@
     });
   });
 
+  /* Smooth anchors */
   document.querySelectorAll('a[href^="#"]').forEach(link => {
     link.addEventListener('click', (e) => {
       const id = link.getAttribute('href');
